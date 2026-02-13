@@ -3,7 +3,7 @@ Orchestrator API - Coordinates all microservices
 Replaces the Rust API for simplicity
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import asyncio
@@ -12,17 +12,13 @@ from pydantic import BaseModel
 import os
 from datetime import datetime, timedelta
 from jose import jwt
+from shared.security import verify_token, validate_pdf_file
+from shared.cors_config import setup_cors
 
 app = FastAPI(title="Legal Judge Orchestrator API")
 
-# Enable CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Use proper CORS configuration instead of wildcard
+setup_cors(app)
 
 # JWT Configuration for internal service calls
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
@@ -60,7 +56,10 @@ async def health_check():
     return {"status": "ok", "service": "orchestrator-api"}
 
 @app.post("/api/analyze-brief", response_model=AnalyzeResponse)
-async def analyze_brief(file: UploadFile = File(...)):
+async def analyze_brief(
+    file: UploadFile = File(...),
+    user: Dict = Depends(verify_token)  # Add authentication
+):
     """
     Complete analysis pipeline:
     1. OCR extraction
@@ -71,17 +70,22 @@ async def analyze_brief(file: UploadFile = File(...)):
     """
     
     try:
+        # Log authenticated request
+        from loguru import logger
+        logger.info(f"Analyze brief request from user: {user['user_id']}")
+        
+        # Read and validate file
+        file_content = await file.read()
+        validated_content = await validate_pdf_file(file_content, file.filename)
+        
         # Generate service token for authenticated calls
         service_token = create_service_token()
         headers = {"Authorization": f"Bearer {service_token}"}
         
-        # Read file content
-        file_content = await file.read()
-        
         # Step 1: OCR Extraction
         print("Step 1: Calling OCR service...")
         async with httpx.AsyncClient(timeout=60.0) as client:
-            files = {"file": (file.filename, file_content, "application/pdf")}
+            files = {"file": (file.filename, validated_content, "application/pdf")}
             try:
                 ocr_response = await client.post("http://localhost:8000/ocr/pdf", files=files)
                 ocr_data = ocr_response.json()

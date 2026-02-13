@@ -14,7 +14,7 @@ class CaseLawDocument(BaseModel):
     
     # Required fields
     case_name: str = Field(..., min_length=5, max_length=500)
-    year: int = Field(..., ge=2022, le=2023)
+    year: int = Field(..., ge=1900, le=2100)  # Fixed: expanded from 2022-2023 to 1900-2100
     court: str = Field(default="Supreme Court of the United States")
     opinion_type: str = Field(default="per_curiam")
     
@@ -56,7 +56,7 @@ class VectorDocument(BaseModel):
     
     document_id: str
     case_name: str
-    year: int = Field(..., ge=2022, le=2023)
+    year: int = Field(..., ge=1900, le=2100)  # Fixed: expanded from 2022-2023 to 1900-2100
     section_type: str  # facts, issue, reasoning, holding, judgment
     vector: List[float]  # 768-dimensional embedding
     text_content: str

@@ -478,6 +478,29 @@ def sanitize_query_filter(filter_value: str) -> str:
     # Remove excessive whitespace
     sanitized = re.sub(r'\s+', ' ', sanitized).strip()
     
+    return sanitized$',  # MongoDB operators
+        r'\{',  # JSON injection
+        r'\}',
+        r'\[',
+        r'\]',
+        r';',   # SQL injection
+        r'--',  # SQL comments
+        r'/\*',  # SQL comments
+        r'\*/',
+        r'xp_',  # SQL Server extended procedures
+        r'sp_',  # SQL Server stored procedures
+    ]
+    
+    sanitized = filter_value
+    for pattern in dangerous_patterns:
+        sanitized = re.sub(pattern, '', sanitized)
+    
+    # Limit length
+    sanitized = sanitized[:100]
+    
+    # Remove excessive whitespace
+    sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+    
     return sanitized
 
 

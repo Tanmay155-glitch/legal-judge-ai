@@ -56,13 +56,16 @@ class EmbeddingService:
             # Verify embedding dimension
             test_embedding = self.model.encode("test", convert_to_numpy=True)
             self.embedding_dim = len(test_embedding)
-            logger.info(f"Embedding dimension: {self.embedding_dim}")
             
+            # Fail fast if dimension is wrong
             if self.embedding_dim != 768:
-                logger.warning(
-                    f"Expected 768-dimensional embeddings, got {self.embedding_dim}. "
-                    "This may cause issues with vector storage."
+                raise ValueError(
+                    f"Model produces {self.embedding_dim}-dimensional embeddings, "
+                    f"but system requires 768 dimensions. "
+                    f"Please use a compatible model or update EMBEDDING_DIMENSION config."
                 )
+            
+            logger.success(f"Verified embedding dimension: {self.embedding_dim}")
         
         except Exception as e:
             logger.error(f"Failed to load model {model_name}: {e}")

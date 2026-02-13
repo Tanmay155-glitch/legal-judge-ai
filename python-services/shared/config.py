@@ -5,8 +5,14 @@ Includes all security settings
 
 import os
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, validator
 from pydantic_settings import BaseSettings
+import secrets
+
+
+def generate_secure_secret() -> str:
+    """Generate cryptographically secure random secret"""
+    return secrets.token_urlsafe(64)
 
 
 class SecuritySettings(BaseSettings):
@@ -14,11 +20,30 @@ class SecuritySettings(BaseSettings):
     
     # JWT Settings
     jwt_secret_key: str = Field(
-        default="change-this-secret-key-in-production",
+        default_factory=generate_secure_secret,
         env="JWT_SECRET_KEY"
     )
     jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
     jwt_expiration_minutes: int = Field(default=30, env="JWT_EXPIRATION_MINUTES")
+    
+    @validator('jwt_secret_key')
+    def validate_jwt_secret(cls, v, values):
+        environment = values.get('environment', os.getenv('ENVIRONMENT', 'development'))
+        if environment == 'production':
+            # Check if it's one of the old default secrets
+            weak_secrets = [
+                'your-secret-key-change-in-production',
+                'change-this-secret-key-in-production'
+            ]
+            if v in weak_secrets:
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set via environment variable in production. "
+                    "Generate a secure secret with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+                )
+            # Check minimum length
+            if len(v) < 32:
+                raise ValueError("JWT_SECRET_KEY must be at least 32 characters in production")
+        return v
     
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=100, env="RATE_LIMIT_PER_MINUTE")
