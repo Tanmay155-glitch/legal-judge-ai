@@ -1,0 +1,38 @@
+# Root requirements.txt - For backward compatibility and quick setup
+# For production, use python-services/requirements.txt
+
+# Core FastAPI and web framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.9
+pydantic==2.5.3
+
+# OCR and PDF processing
+pytesseract==0.3.10
+pdf2image==1.17.0
+
+# HTTP client
+requests==2.31.0
+httpx==0.26.0
+
+# Vector database
+qdrant-client==1.7.0
+
+# ML and NLP
+sentence-transformers==2.3.1
+torch==2.1.2
+transformers==4.36.2
+numpy==1.26.3
+
+# LLM integration
+openai==1.10.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+hypothesis==6.98.3
+
+# Utilities
+python-dotenv==1.0.0
+loguru==0.7.2
+redis==5.0.1

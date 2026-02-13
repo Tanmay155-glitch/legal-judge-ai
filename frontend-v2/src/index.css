@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --color-primary: #047857;
+    /* Emerald green */
+    --color-primary-dark: #064e3b;
+    /* Dark emerald */
+    --color-accent: #10b981;
+    /* Soft green */
+    --color-bg: #f0fdf4;
+    /* Faint green background */
+    --color-surface: #ffffff;
+    /* White */
+    --color-border: #d1fae5;
+    /* Light green border */
+    --color-text: #064e3b;
+    /* Dark green text */
+    --color-text-muted: #6b7280;
+    /* Gray muted text */
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Georgia', 'Times New Roman', serif;
+}

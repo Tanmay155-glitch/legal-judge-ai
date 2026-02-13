@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  # Vector Database (Qdrant)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-vectors
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache (for query caching)
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # OCR Service (Python)
+  ocr_service:
+    build: ./ocr-service
+    container_name: ocr-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ocr-service:/app
+    depends_on:
+      - qdrant
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Python Services (ML/NLP)
+  python_services:
+    build: ./python-services
+    container_name: python-services
+    # SECURITY: Only expose API gateway port in production
+    ports:
+      - "8001:8001"  # Embedding service
+      - "8002:8002"  # Ingestion service
+      - "8003:8003"  # Search service
+      - "8004:8004"  # Prediction service
+      - "8005:8005"  # Opinion service
+    volumes:
+      - ./python-services:/app
+      - ./uploads:/app/uploads  # Secure upload directory
+    environment:
+      # Database connections
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OCR_SERVICE_URL=http://ocr_service:8000
+      
+      # Security settings (load from .env file)
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - JWT_EXPIRATION_MINUTES=${JWT_EXPIRATION_MINUTES:-60}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      
+      # Rate limiting
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-100}
+      - RATE_LIMIT_BURST=${RATE_LIMIT_BURST:-20}
+      
+      # CORS configuration
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      
+      # File upload security
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-10485760}
+      - ALLOWED_UPLOAD_BASE=/app/uploads
+      
+      # Request security
+      - MAX_REQUEST_SIZE=${MAX_REQUEST_SIZE:-10485760}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-60}
+      
+      # Input validation
+      - MAX_QUERY_LENGTH=${MAX_QUERY_LENGTH:-1000}
+      - MAX_FACTS_LENGTH=${MAX_FACTS_LENGTH:-10000}
+      - MAX_ISSUE_LENGTH=${MAX_ISSUE_LENGTH:-1000}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENABLE_PII_REDACTION=${ENABLE_PII_REDACTION:-true}
+      
+      # External API keys (use secrets manager in production)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - qdrant
+      - redis
+      - ocr_service
+    restart: always
+    # SECURITY: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Rust API Gateway (Axum)
+  rust_api:
+    build: ./rust-api
+    container_name: rust-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EMBEDDING_SERVICE_URL=http://python_services:8001
+      - INGESTION_SERVICE_URL=http://python_services:8002
+      - SEARCH_SERVICE_URL=http://python_services:8003
+      - PREDICTION_SERVICE_URL=http://python_services:8004
+      - OPINION_SERVICE_URL=http://python_services:8005
+      - OCR_SERVICE_URL=http://ocr_service:8000
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      - qdrant
+      - redis
+      - ocr_service
+      - python_services
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (React) - Optional
+  # frontend:
+  #   build: ./frontend-v2
+  #   container_name: frontend
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - rust_api
+
+volumes:
+  qdrant_storage:
+    driver: local
