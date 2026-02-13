@@ -103,3 +103,6 @@ Thumbs.db
 *.temp
 tmp/
 temp/
+
+# Documentation (exclude all .md files)
+*.md
